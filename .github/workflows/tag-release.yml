@@ -1,0 +1,46 @@
+name: Release On Tag
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build (release)
+        run: cargo build --release
+
+      - name: Package tar.gz
+        run: |
+          set -euxo pipefail
+          mkdir -p dist
+          BIN=test-rust-release2
+          cp target/release/${BIN} dist/
+          pushd dist
+          chmod +x ${BIN}
+          TAR_NAME=${BIN}-linux-$(uname -m).tar.gz
+          tar -czf ${TAR_NAME} ${BIN}
+          echo "TAR_PATH=dist/${TAR_NAME}" >> $GITHUB_ENV
+          popd
+
+      - name: Create GitHub Release and upload asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.TAR_PATH }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
